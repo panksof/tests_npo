@@ -1,31 +1,83 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.5.33516.290
-MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "algorithm", "algorithm\algorithm.vcxproj", "{60572B80-BF7B-4C4B-9FE8-8A72EB0EE964}"
-EndProject
-Global
-	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|x64 = Debug|x64
-		Debug|x86 = Debug|x86
-		Release|x64 = Release|x64
-		Release|x86 = Release|x86
-	EndGlobalSection
-	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{60572B80-BF7B-4C4B-9FE8-8A72EB0EE964}.Debug|x64.ActiveCfg = Debug|x64
-		{60572B80-BF7B-4C4B-9FE8-8A72EB0EE964}.Debug|x64.Build.0 = Debug|x64
-		{60572B80-BF7B-4C4B-9FE8-8A72EB0EE964}.Debug|x86.ActiveCfg = Debug|Win32
-		{60572B80-BF7B-4C4B-9FE8-8A72EB0EE964}.Debug|x86.Build.0 = Debug|Win32
-		{60572B80-BF7B-4C4B-9FE8-8A72EB0EE964}.Release|x64.ActiveCfg = Release|x64
-		{60572B80-BF7B-4C4B-9FE8-8A72EB0EE964}.Release|x64.Build.0 = Release|x64
-		{60572B80-BF7B-4C4B-9FE8-8A72EB0EE964}.Release|x86.ActiveCfg = Release|Win32
-		{60572B80-BF7B-4C4B-9FE8-8A72EB0EE964}.Release|x86.Build.0 = Release|Win32
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {8C1DEDF0-78B0-485D-B83E-3665A9752407}
-	EndGlobalSection
-EndGlobal
+#include <iostream>
+#include <fstream>
+#include <chrono>
+#include <ctime>
+#include <random>
+#include <string>
+#include <sstream>
+#include <vector>
+#include <iomanip>
+#include <openssl/opensslv.h>
+#include <openssl/ssl.h>
+#include <openssl/sha.h>
+
+
+// Функция для вычисления хеша данных
+std::string calculateHash(const std::string& data) {
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    SHA256_CTX sha256;
+    SHA256_Init(&sha256);
+    SHA256_Update(&sha256, data.c_str(), data.length());
+    SHA256_Final(hash, &sha256);
+
+    std::stringstream ss;
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+        ss << std::hex << (int)hash[i];
+    }
+
+    return ss.str();
+}
+
+int main(int argc, char* argv[]) {
+    std::string filename;
+    if (argc > 1) {
+        filename = argv[1];
+    }
+    else {
+        std::cout << "Введите имя файла: ";
+        std::cin >> filename;
+    }
+
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Ошибка открытия файла." << std::endl;
+        return 1;
+    }
+
+    std::string data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    file.close();
+
+    std::string hash = calculateHash(data);
+
+    auto now = std::chrono::system_clock::now();
+    std::time_t now_time = std::chrono::system_clock::to_time_t(now);
+
+    std::stringstream timestamp_ss;
+    timestamp_ss << std::put_time(std::localtime(&now_time), "%F %T");
+    std::string timestamp = timestamp_ss.str();
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(1000, 9999);
+    int random_number = dis(gen);
+
+    hash += timestamp + std::to_string(random_number);
+
+    std::cout << "Цифровая подпись данных: " << hash << std::endl;
+
+    std::string output_filename = "signature_" + filename;
+    std::ofstream output_file(output_filename);
+    if (output_file.is_open()) {
+        output_file << hash << std::endl << data;
+        output_file.close();
+        std::cout << "Цифровая подпись сохранена в файле: " << output_filename << std::endl;
+    }
+    else {
+        std::cerr << "Ошибка открытия файла для сохранения цифровой подписи." << std::endl;
+        return 1;
+    }
+
+    return 0;
+}
+
+
